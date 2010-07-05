@@ -1,0 +1,139 @@
+Install
+-------
+
+Mythtv from svn:
+
+svn co http://svn.mythtv.org/svn/branches/release-0-23-fixes/
+cd release-0-23-fixes/
+cd mythtv
+./configure
+
+Compile and install it:
+
+make
+
+Backup your database and remove mythtv if you have it
+
+mysqldump -u root mythconverg > mythdump.sql
+mysqldump -u root mythconverg settings > mythdumpsettings.sql
+
+sudo /etc/init.d/mythtv-backend stop
+aptitude remove mythtv-backend
+
+mysql -u root
+ drop database mythconverg
+
+sudo checkinstall
+
+sudo dpkg -i mythtv_1-1_i386.deb
+
+add the data back in
+
+mysql -u root
+ create database mythconverg
+ mysql -u root mythconverg <  mythdumpsettings.sql
+
+mythtv-setup
+
+Configure it:
+
+Capture card
+Some settings are ether but capture card needs adding and seetting to DVB DTV capture card (v3.x)
+ 
+Video sources:
+Select (New video source). Enter a video source name of "EIT". Set the Listings grabber to "Transmitted guide only (EIT)". 
+
+Input connections
+Hit "Scan for channels" and set the correct country. Hopefully, this will find a load of channels and radio stations.
+ -> set a starting channel or it whinges
+
+Storage directories: /var/lib/mythtv
+
+
+Patch it:
+--------
+
+http://projectbaird.com/patches/mythtv/
+To apply the patch, change to the top-level mythtv directory (which contains themes, mythtv, etc.), and run:
+
+patch -p0 < /path/to/00-programuri.diff
+
+make
+sudo dpkg -i mythtv_4-1_i386.deb
+
+now change table
+http://projectbaird.com/patches/mythtv/
+
+ALTER TABLE `program` ADD `programuri` TINYTEXT DEFAULT NULL;
+
+start:
+sudo /usr/local/bin/mythbackend
+
+
+Data export
+-----------
+
+Set up a crontab to export the data and insert it into the database:
+
+2 18 * * * ruby exportdatav-withmythchanges.rb
+
+uncomment these lines to upload it:
+#   serv = "http://dev.notu.be/2010/02/recommend/match"
+#   puts post_data(serv,data)
+
+there's also exportchannels.rb to get a list of channels and dvb urls
+
+
+
+RDF Server
+----------
+
+RDF database:
+
+* download tdb 0.8.4 http://sourceforge.net/projects/jena/files/
+* install java 6 (via apt-get)
+* install jruby1.1 (via apt-get)
+* jruby -S gem install json_pure
+
+Crawler:
+--------
+
+crontab:
+3 3 * * * cd /var/www/discovery/2010/02/recommend; jruby crawler.rb
+
+RDF access servlets:
+
+QueryServlet.rb
+MatchProgrammesServlet.rb
+
+jruby server.rb &
+
+Resolver:
+---------
+
+I use webrick and a servlet containing resolve.rb and this:
+
+      def do_GET(req, res)
+       res = resolve(req,res)
+      end
+
+You need to configure an apache virtual host:
+
+<VirtualHost *:80>
+ ServerName services.notu.be
+ DocumentRoot /var/www/discovery/2010/07/resolver
+ ServerAlias *.tvdns.net
+ ServerAlias *.radiodns.org
+ ServerAlias *.tvdns.org
+ <IfModule mod_proxy.c>
+   ProxyPreserveHost On
+ </IfModule>
+   <Directory /var/www/discovery/2010/07/resolver>
+     DirectoryIndex index.html
+     AllowOverride All
+     Order allow,deny
+     Allow from all   
+   </Directory>
+</VirtualHost>
+
+
