@@ -4,7 +4,7 @@
    require 'time'
    require 'open-uri'
    require 'net/http'
-   require 'java'
+#   require 'java'
    require 'date'
    require 'pp'
    require 'cgi'
@@ -17,6 +17,8 @@
               req = Net::HTTP::Get.new(u.request_uri,{'User-Agent' => useragent})
               begin    
                 res2 = Net::HTTP.new(u.host, u.port).start {|http|h = http.head(u.request_uri).code }
+              rescue Timeout::Error=>e
+                puts "uri error #{e}"
               end
 
               return h
@@ -62,6 +64,7 @@
         u =  URI.parse z
         req = Net::HTTP::Get.new(u.request_uri,{'User-Agent' => useragent})
         req = Net::HTTP::Get.new( u.path+ '?' + u.query )
+        req.basic_auth 'notube', 'ebuton'
         begin
           res2 = Net::HTTP.new(u.host, u.port).start {|http|http.request(req) }
         end
@@ -81,6 +84,17 @@
         end
         j = JSON.parse(r)
         return j
+   end
+
+
+#delete everything in the db
+   def doDelete(filename)
+        #it's easier just to delete the directory says damian
+        Dir["#{File.dirname(filename)}/*"].each do |file|
+           next if File.basename(file) == File.basename(filename)
+           FileUtils.rm_rf file, :noop => true, :verbose => true
+        end
+        
    end
 
 
@@ -212,6 +226,7 @@
               else
                 req.set_form_data({'url'=>url}, ';')
               end
+              req.basic_auth 'notube', 'ebuton'
 
               begin    
                 res2 = Net::HTTP.new(u.host, u.port).start {|http|http.request(req) }
@@ -325,20 +340,21 @@
 >
 "
 
+     #delete *everything*
+
+#    serv = "http://dev.notu.be/2010/02/recommend/query"
+     doDelete("DataStore")
 
      urls =  get_urls_to_retrieve(nil)
      puts urls
-#     urls =["http://www.bbc.co.uk/bbctwo/programmes/schedules/england/2010/04/04.json"]
-#    urls=["http://dev.notu.be"]
-#    urls =["http://www.bbc.co.uk/bbcone/programmes/schedules/london/2010/03/01.json","http://www.bbc.co.uk/bbctwo/programmes/schedules/england/2010/03/01.json"]     
 
-#     urls =["http://www.bbc.co.uk/bbcone/programmes/schedules/london/2010/06/29.json"]     
-#     urls = ["http://www.bbc.co.uk/radio4/programmes/schedules/fm/2010/07/05.json"]
+#    urls     =["http://www.bbc.co.uk/bbcone/programmes/schedules/london/2010/03/01.json","http://www.bbc.co.uk/bbctwo/programmes/schedules/england/2010/07/24.json"]
+
      arrs = Array.new
      allprogs = Array.new
      t = DateTime.now
      d = t.strftime("%Y-%m-%d")
-#     d = "2010-03-01"
+#    d = "2010-03-01"
      urls.each do |u|
         arr,pids = get_urls(u,d)
         puts "sleeping 2 #{u} ... #{arr.class}"
@@ -354,10 +370,10 @@
 
 
      allprogs.each do |progs|
-       puts "arr? #{progs.class}"
+       #puts "arr? #{progs.class}"
          if progs!=nil
            progs.each do |prog|
-             puts "arr?? #{prog.class}"
+             #puts "arr?? #{prog.class}"
              pid = prog["pid"]
              displayTitle = prog["displayTitle"]
              startd = prog["startd"]

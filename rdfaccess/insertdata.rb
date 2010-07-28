@@ -7,6 +7,8 @@ require 'cgi'
 
 def findMatches(data)
 
+# assumes one channel
+  chan = nil
   txtresults = ""
   errors = ""
   results = "<rdf:RDF xmlns:rdf ='http://www.w3.org/1999/02/22-rdf-syntax-ns#' xmlns:owl='http://www.w3.org/2002/07/owl#'>"
@@ -35,9 +37,8 @@ def findMatches(data)
       en = rs[3]
       ch = rs[4]
 
-      puts "ch ,,, #{ch}"
       ch = channels[ch.to_s]
-
+      chan = ch
       puts "channel ... #{ch}"
 
       ti = rs[5]
@@ -61,8 +62,10 @@ select distinct ?pid ?prog ?title where { ?p
 <http://purl.org/ontology/po/broadcast_of> ?pid . ?prog 
 <http://purl.org/ontology/po/version> ?pid . ?prog 
 <http://purl.org/ontology/po/short_synopsis> ?title . FILTER( (?s = 
-\"#{st}\"^^xsd:dateTime ) && (?e = \"#{en}\"^^xsd:dateTime ) )
+\"#{st}\"^^xsd:dateTime ))
 }"
+
+# && (?e = \"#{en}\"^^xsd:dateTime ) )
 
       else
         q = " PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> 
@@ -76,12 +79,12 @@ select distinct ?pid ?prog ?title where { ?p
 <http://purl.org/ontology/po/broadcast_of> ?pid . ?prog 
 <http://purl.org/ontology/po/version> ?pid . ?prog 
 <http://purl.org/ontology/po/short_synopsis> ?title . FILTER( (?s = 
-\"#{st}\"^^xsd:dateTime ) && (?e = \"#{en}\"^^xsd:dateTime ) )
+\"#{st}\"^^xsd:dateTime ) )
 }"
+#&& (?e = \"#{en}\"^^xsd:dateTime ) )
 
       end
-      #puts q
-      # how do we get the version??
+
       # make the query
  
       serv = "http://dev.notu.be/2010/02/recommend/query"
@@ -98,7 +101,6 @@ select distinct ?pid ?prog ?title where { ?p
          versions.each do |v|
            pid = v["pid"]
            title = v["title"]
-           #puts "VVV #{pid}"
          end
       else
          result = doQuery(serv,q)
@@ -109,7 +111,6 @@ select distinct ?pid ?prog ?title where { ?p
            versions.each do |v|
              pid = v["pid"]
              title = v["title"]
-             #puts "VVV #{pid}"
            end
          else
            errors = "#{errors}
@@ -123,6 +124,7 @@ select distinct ?pid ?prog ?title where { ?p
       if(pid!=nil && pid!="" && crid && crid!="")
          progsurl = pid
        # add to the text rdf to add
+         puts "CRID OK"
          results = "#{results}
 <rdf:Description rdf:about='#{crid}'>
   <owl:sameAs rdf:resource='#{progsurl}'/>
@@ -130,23 +132,22 @@ select distinct ?pid ?prog ?title where { ?p
 "
 #also the channels and data sameas (do the channels separately)
         txtresults = "#{txtresults}
-<#{crid}> <#{progsurl}> #{title}  
-"
+<#{crid}> <#{progsurl}> #{title}"
          if dvb && dvb!=""
+            puts "DVB OK"
             results = "#{results}
 <rdf:Description rdf:about='#{crid}'>
   <owl:sameAs rdf:resource='#{dvb}'/>
 </rdf:Description>
 "
            txtresults = "#{txtresults}
-<#{crid}> <#{dvb}> #{title}  
-"
+<#{crid}> <#{dvb}> #{title}"
 
          end
       end
     end
   end
-  return "#{results}\n</rdf:RDF>",txtresults,errors
+  return "#{results}\n</rdf:RDF>",txtresults,errors,chan
 
 end
        
@@ -154,12 +155,12 @@ def doQuery(serv,q)
   useragent = "NotubeMiniCrawler/0.1"
   puts q
   z = serv + "?query=" + CGI.escape(q)
-#  puts z
   u =  URI.parse z
   req = Net::HTTP::Get.new(u.request_uri,{'User-Agent' => useragent})
 
   req = Net::HTTP::Get.new( u.path+ '?' + u.query ) 
 
+  req.basic_auth 'notube', 'notube'
   begin
     res2 = Net::HTTP.new(u.host, u.port).start {|http|http.request(req) }
   end
@@ -181,16 +182,23 @@ end
 
 
 #primarily to use our serlet-based jena data accessor
-def post_single_url(url,serv,q)
+def post_single_url(url,serv,q,variable_name,usr,pass)
 
               useragent = "NotubeMiniCrawler/0.1"
               u =  URI.parse serv  
-              req = Net::HTTP::Post.new(u.request_uri,{'User-Agent' => useragent})
-              if(q)
-                req.set_form_data({'url'=>url, "q"=>q}, ';')
+#              req = Net::HTTP::Post.new(u.request_uri,{'User-Agent' => useragent})
+              puts "posting to #{serv} variable_name #{variable_name}"
+              if (u.query)
+                req = Net::HTTP::Post.new(u.path+ '?' + u.query,{'User-Agent' => useragent})
+              else
+                req = Net::HTTP::Post.new(u.path,{'User-Agent' => useragent})
+              end
+              if(variable_name)
+                req.set_form_data({variable_name=>q}, ';')
               else
                 req.set_form_data({'url'=>url}, ';')
               end
+              req.basic_auth usr,pass
 
               begin    
                 res2 = Net::HTTP.new(u.host, u.port).start {|http|http.request(req) }
@@ -214,7 +222,6 @@ end
 def save(dir, data, filename)
             FileUtils.mkdir_p dir
             fn = dir+"/"+filename 
-            puts fn
             open(fn, 'w') { |f|
               f.puts data
               f.close
@@ -230,16 +237,21 @@ def go(data)
 #  data = "crid://fp.bbc.co.uk/5a6s2e	dvb://3098.1041.1041.233a.dvb.tvdns.net	2010-06-20T00:40:00+01:00	2010-06-20T00:45:00+01:00	bbcone	Weatherview
 #	dvb://3098.1041.1041.233a.dvb.tvdns.net	2010-06-20T00:45:00+01:00	2010-06-20T06:00:00+01:00	bbcone	BBC News"
 
-  rdf,y,errors =  findMatches(data)
-  puts rdf
-  puts y
+  rdf,txtresults,errors,chan =  findMatches(data)
+# puts rdf
+  puts txtresults
 # now post these to the right url
 
 # for the rdf
   t = DateTime.now
   d = t.strftime("%Y/%m/%d")
 
-  filen = "sameas.rdf"
+  if(chan==nil)
+    chan=""
+  end
+  chan = chan.gsub("/","_")
+
+  filen = "#{chan}sameas.rdf"
   fullpath = "crawler/#{d.to_s}/data/#{filen}"
   save("crawler/#{d.to_s}/data", rdf,filen)
 
@@ -249,7 +261,7 @@ def go(data)
    
 # now using our servlet
   serv = "http://dev.notu.be/2010/02/recommend/query"
-  data = post_single_url(fullpath,serv,nil)
+  data = post_single_url(fullpath,serv,nil,nil,"notube","ebuton")
   puts "data #{data}"
   j = nil    
   begin       
@@ -259,6 +271,14 @@ def go(data)
     puts "posting failed[2] #{e}"
     result = "not ok"
   end
+
+  #also post to sameas.
+  puts "posting sameas data"
+  txtresults = "#{txtresults}\n"
+  puts txtresults
+  data2 = post_single_url("","http://notube.rkbexplorer.com/crs/assert/?action=post",txtresults,"data","notube","notube")
+
+  puts "result is #{data2}"
   return  result
 end
     

@@ -151,7 +151,7 @@ def post_data(serv,data)
                 puts "no data to post"
                 return 
               end
-              req.basic_auth 'notube', 'ebuton'
+              req.basic_auth 'notube', 'notube'
 
               begin
 
