@@ -17,7 +17,7 @@ require 'pp'
 
 # do the main body
 def generateAndProcess()
-  txtresults = ""
+  allresults = ""
 
   # create the query
   d = DateTime.now
@@ -30,10 +30,13 @@ def generateAndProcess()
   chans = ["BBC ONE","BBC TWO", "BBC THREE", "BBC FOUR","CBBC Channel","CBeebies","BBC Parliament","BBC NEWS","BBC Red Button",
 "BBC R5L","BBC R5SX","BBC 6 Music","BBC Radio 7", "BBC R1X","BBC Asian Net.",
 "BBC World Sv.","BBC Radio 1","BBC Radio 2","BBC Radio 3","BBC Radio 4"]
+#  chans=["BBC Radio 4"]
 
 # we don't have data in the crawler db from after today (i.e. for progs)
 
   chans.each do |ch|
+
+    txtresults = ""
 
     q = "select 
 programid,starttime,endtime, channel.callsign,title,programuri from channelscan_channel,channel, program where 
@@ -94,8 +97,14 @@ and channel.callsign = '#{ch}' "
 
     end
 
+# post it to the server
+# we do it channel by channel or it times out
+    serv = "http://dev.notu.be/2010/02/recommend/match"
+    puts post_data(serv,txtresults)
+    allresults = "#{allresults}#{txtresults}"
+
   end
-  return txtresults
+  return allresults
 end
 
 
@@ -121,6 +130,11 @@ def query(q)
       dbh.disconnect
    end
 
+#  example data  
+#  row = ["12440","8268","8204","9018","www.itv.com/22862523","2010-06-14 01:20:00","2010-06-14 02:30:00","ITV1","The Zone"]
+#  row1 = ["12440","4161","4161","9018","fp.bbc.co.uk/5a6s28","2010-06-14 00:05:00","2010-06-14 00:10:00","BBC ONE","Weatherview"]
+#  arr.push(row)
+#  arr.push(row1)
   return arr
 end
 
@@ -137,6 +151,7 @@ def post_data(serv,data)
                 puts "no data to post"
                 return 
               end
+              req.basic_auth 'notube', 'ebuton'
 
               begin
 
@@ -154,10 +169,11 @@ def post_data(serv,data)
 end
 
 begin
-   data =  generateAndProcess()
-   puts data
-# post it to the server
-##   serv = "http://dev.notu.be/2010/02/recommend/match"
-##   puts post_data(serv,data)
+   results = generateAndProcess()
+#save them for testcases later
+   d = DateTime.now
+   dt = d.strftime("%Y-%m-%d")
+   local_filename = "data/matchdata-#{dt}.txt"
+   File.open(local_filename, 'w') {|f| f.write(results) }
 
 end
