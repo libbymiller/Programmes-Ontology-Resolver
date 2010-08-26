@@ -30,7 +30,7 @@ def generateAndProcess()
   chans = ["BBC ONE","BBC TWO", "BBC THREE", "BBC FOUR","CBBC Channel","CBeebies","BBC Parliament","BBC NEWS","BBC Red Button",
 "BBC R5L","BBC R5SX","BBC 6 Music","BBC Radio 7", "BBC R1X","BBC Asian Net.",
 "BBC World Sv.","BBC Radio 1","BBC Radio 2","BBC Radio 3","BBC Radio 4"]
-#  chans=["BBC Radio 4"]
+#  chans=["BBC THREE","BBC FOUR"]
 
 # we don't have data in the crawler db from after today (i.e. for progs)
 
@@ -44,10 +44,10 @@ channelscan_channel.chan_num = channel.channum and channel.chanid =
 program.chanid and starttime >= \"#{dt}\" and starttime <= \"#{dt2}\" 
 and channel.callsign = '#{ch}' "
 
-    puts q
+    puts "query is #{q}"
 
     results = query(q)
-
+    puts "found #{results.length} results"
     #loop through, tidying up the crid and generating the dvb uri
 
     results.each do |r|
@@ -91,17 +91,18 @@ and channel.callsign = '#{ch}' "
       title = r[4]
 
       #return the results tab separated, one line for each
-
+      puts "adding line #{crid}|#{dvb}|#{st}|#{et}|#{ch}|#{title}"
       txtresults = "#{txtresults}
 #{crid}|#{dvb}|#{st}|#{et}|#{ch}|#{title}"
-
     end
 
 # post it to the server
 # we do it channel by channel or it times out
     serv = "http://dev.notu.be/2010/02/recommend/match"
+    puts "posting data"
     puts post_data(serv,txtresults)
     allresults = "#{allresults}#{txtresults}"
+    sleep 5
 
   end
   return allresults
@@ -151,29 +152,42 @@ def post_data(serv,data)
                 puts "no data to post"
                 return 
               end
-              req.basic_auth 'notube', 'notube'
+              req.basic_auth 'notube', 'ebuton'
 
               begin
 
                 res2 = Net::HTTP.new(u.host, u.port).start {|http|
-                  http.read_timeout = 500
+                  http.read_timeout = 1000
                   http.request(req) 
                 }
-
-
+              rescue Timeout::Error=>e
+                puts "Timeout error - #{e}"
+              rescue Errno::ECONNRESET=>f
+                puts "Connection Reset - #{f}"
+              rescue Errno::ETIMEDOUT=>g
+                puts "Connection Timeout - #{g}"
               end
 
-              r = res2.body
-              puts r
+              r = nil
+              if(res2)
+                r = res2.body
+              else
+                r = nil
+              end
               return r
 end
 
 begin
    results = generateAndProcess()
+   puts "[1]"
 #save them for testcases later
    d = DateTime.now
+   puts "[2]"
    dt = d.strftime("%Y-%m-%d")
+   puts "[3]"
    local_filename = "data/matchdata-#{dt}.txt"
+   puts "[4]"
    File.open(local_filename, 'w') {|f| f.write(results) }
+   puts "[5]"
 
 end

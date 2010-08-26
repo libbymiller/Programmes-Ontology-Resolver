@@ -89,9 +89,43 @@ def query(q)
 end
 
 
+def post_data(serv,data)
+  
+              useragent = "NotubeMiniCrawler/0.1"
+              u =  URI.parse serv
+              req = Net::HTTP::Post.new(u.request_uri,{'User-Agent' => useragent})
+              if(data)
+                req.set_form_data({'data'=>data}, ';')
+              else
+                puts "no data to post"
+                return 
+              end
+              req.basic_auth 'notube', 'ebuton'
+
+              begin
+                res2 = Net::HTTP.new(u.host, u.port).start {|http|http.request(req) }
+              end
+
+              r = ""
+              begin
+                 r = res2.body
+              rescue OpenURI::HTTPError=>e
+                 case e.to_s
+                    when /^404/
+                       raise 'Not Found'
+                    when /^304/
+                       raise 'No Info'
+                    end
+              end
+              return r
+end
 
 begin
    data =  generateAndProcess()
+   serv = "http://dev.notu.be/2010/02/recommend/match"
+   puts "netid|service_id|sdt_tsid|orig_netid"
    puts data
+#   puts post_data(serv,data)
+# post it to the server
 
 end

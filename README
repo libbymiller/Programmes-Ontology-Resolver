@@ -1,80 +1,115 @@
-Resolve dvb crids to BBC programmes urls.
+Resolve a crid
 
-See 
-http://services.notu.be/#resolve
-http://wiki.github.com/nexgenta/Baird/programmes-ontology-resolver
-http://projectbaird.com/specs/draft-mcroberts-uri-resolver.html
-http://projectbaird.com/patches/mythtv/
+http://services.notu.be/resolver
+
+See Project Baird (spec: 
+http://projectbaird.com/specs/draft-mcroberts-uri-resolver.html) for an 
+explanation. It currently works only for BBC content, and in some cases 
+only for the West regional variations. It's not yet complete with 
+respect to the specification. You can find crids from newer versions of 
+MythTV (programid in the program table). They are not the same as the 
+crids in the BBC backstage data
+
+Example queries using curl are below.
 
 Limitations
 
     * Only today's data is available
-    * tranmissionTime and duration are not implemented
+    * Duration is not implemented
+    * BBC-related channels only
     * Regional variations are for the West
-    * BBC data only
+    * There are probably a bunch of bugs
 
 Examples using Curl
+
 Crids
 
-If a url that's a crid is present, just go ahead and look up that, resolve to /programmes version.
-curl "http://services.notu.be/resolve?uri\[\]=crid://fp.bbc.co.uk/240wmv&fmt=rdf"
+If a url that's a crid is present, just go ahead and look up that, 
+resolve to /programmes version.
 
-The same but follwoing the redirect
-curl -L "http://services.notu.be/resolve?uri\[\]=crid://fp.bbc.co.uk/240wmv&fmt=rdf"
+curl "http://services.notu.be/resolve?uri\[\]=crid://fp.bbc.co.uk/5a6s49&fmt=rdf"
 
-Result: 301, http://www.bbc.co.uk/programmes/b00j4cz1.rdf (Baroque!)
-dvb urls
+if you don't set the format using the accept header or fmt=rdf it 
+resolves to the html version of the page, which itself is then resolved 
+by the /programmes site to the Episode (rather than the Version) - you 
+could equally use:
 
-If there's no crid, if there's a dvb url in the query, look up that, resolve to programmes
+curl -H 'Accept: application/rdf+xml'
 
-These follow the format: dvb://<original_network_id>.<transport_stream_id>.<service_id>;event_id~start-time--duration
-curl "http://services.notu.be/resolve?uri\[\]=dvb://233a.1041.10c0;ee0c~20100705T180000Z--PT01H00M00S&fmt=rdf"
+The same but following the redirect
 
-Result: 301, http://www.bbc.co.uk/programmes/b00s90x6.rdf "Total wipeout"
+curl -L "http://services.notu.be/resolve?uri\[\]=crid://fp.bbc.co.uk/5a6s49&fmt=rdf"
+
+Result: 301, http://www.bbc.co.uk/programmes/b00tk8lm#programme
+
+Dvb urls
+
+If there's no crid, if there's a dvb url in the query, look up that, 
+resolve to programmes
+
+These follow the format: 
+dvb://<original_network_id>.<transport_stream_id>.<service_id>;event_id~start-time--duration
+
+curl "http://services.notu.be/resolve?uri\[\]=dvb://233a.1041.1041;cde9~20100825T233500Z--PT00H05M00S&fmt=rdf"
+
+Result: 301, http://www.bbc.co.uk/programmes/b00tk8lm#programme
+
 Host and start time
 
-If thre's no dvb url and if the host header is present and matches the TVDNS format, and start is avaailable as a parameter, resolve to programmes
-curl -H "Host: 3098.1041.1041.233a.dvb.tvdns.net" "http://services.notu.be/resolve?start=2010-07-05T15:15:00Z"
+If there's no dvb url and if the host header is present and matches the 
+TVDNS format, and start is available as a parameter, resolve to 
+programmes
 
-Result: 301, http://www.bbc.co.uk/programmes/b000f7k9.rdf "Murder she wrote : The Legacy of Borbey Hous"
+curl -H "Host: 3098.1041.1041.233a.dvb.tvdns.net" "http://services.notu.be/resolve?start=2010-08-26T19:00:00Z"
 
-Radio 4 test:
-curl -H "Host: 3098.1b00.1041.233a.dvb.tvdns.net" "http://services.notu.be/resolve?start=2010-07-05T10:45:00Z"
+Similarly, a transmisisonTime can be set, including defauling to now:
 
-Incorrectly non-UTC start time
-curl -H "Host: 3098.1b00.1041.233a.dvb.tvdns.net" "http://services.notu.be/resolve?start=2010-07-05T10:45:00"
+curl -H "Host: 3098.1041.1041.233a.dvb.tvdns.net" "http://services.notu.be/resolve?transmissionTime="
 
-bbc three test
-curl -H "Host: 3098.10c0.1041.233a.dvb.tvdns.net" "http://services.notu.be/resolve?start=2010-07-05T04:10:00Z"
 Eventid and Serviceid
 
-If crid, dvb urls and start are not available, but eventid and serviceid are both present as parameters, resolve to programmes
-curl "http://services.notu.be/resolve?serviceid=10bf&eventid=92b5"
+If crid, dvb urls and start are not available, but eventid and serviceid 
+are both present as parameters, resolve to programmes
 
-Result: 301, http://www.bbc.co.uk/programmes/b00t2mrk.rdf Eggheads, ep55
+curl "http://services.notu.be/resolve?serviceid=1041&eventid=cde9"
 
-Example of an incorrect event id
-curl "http://services.notu.be/resolve?serviceid=10bf&eventid=92b5y"
+Result: 301, http://www.bbc.co.uk/programmes/b00tk8lm#programme
+No Redirect
+
+If you don't want it to redirect use noredirect=true as a parameter:
+
+curl "http://services.notu.be/resolve?uri\[\]=crid://fp.bbc.co.uk/5a6s49&noredirect=true"
+
 Programmes and Pips
 
-These do not resolve, but just return the crid and dvb urls if available. Note that only versions will resolve, not episodes.
-curl "http://services.notu.be/resolve?uri\[\]=http://www.bbc.co.uk/programmes/b00swmh7#programme"
-curl "http://services.notu.be/resolve?uri\[\]=http://www.bbc.co.uk/programmes/b00sx8lv#programme"
-curl "http://services.notu.be/resolve?uri\[\]=tag:feeds.bbc.co.uk,2008:PIPS:b00swmh7
+These do not resolve, but just return the crid and dvb urls if 
+available. Note that both versions and episodes will resolve.
+
+Example of a working version programmes url
+
+curl "http://services.notu.be/resolve?uri\[\]=http://www.bbc.co.uk/programmes/b00tk8lm#programme"
+
+Example of a working programme Episode url
+
+curl "http://services.notu.be/resolve?uri\[\]=http://www.bbc.co.uk/programmes/b00tk8my#programme"
+
+Example of a tag url
+
+curl "http://services.notu.be/resolve?uri\[\]=tag:feeds.bbc.co.uk,2008:PIPS:b00tk8lm"
+
 How it works
 
-I use a patched version of MythTV created by Mo, and a script runs on my 
-machine once a day, uploading the crid and dvb mapppings to an RDF 
-database, creating a 'sameAs' relationship between them. Meantime, a 
-mini crawler runs nightly, grabbing the schedule and version data from 
-/programmes for that day in RDF. The resolver does a variety of sparql 
-queries to attempt to respond to requests.
+I use a patched version of MythTV created by Mo, and a script runs on my machine once a day, uploading the crid and dvb mapppings to an RDF database, creating a 'sameAs' relationship between them. Meantime, a mini crawler runs nightly, grabbing the schedule and version data from /programmes for that day in RDF. The resolver does a variety of Sparql queries on the merged data to attempt to respond to requests, mostly matching on time and a hardcoded list of channel callsigns to urls mappings.
 
-It's fairly involved to set up and the documentation isn't complete - but 
-these are very simple and work without setting up any RDF server:
+The code
 
-exportchannels.rb  
-exportdatav-withmythchanges.rb 
+The code is in github. It's fairly involved to set up and the 
+documentation isn't complete - but these are very simple and work 
+without setting up any RDF server, and could trivially be rewritten in 
+python or whatever:
+
+exportchannels.rb
+exportdatav-withmythchanges.rb
 exportdata.rb
 
 and you could easily implement the rest of it it without using RDF at all.
@@ -82,3 +117,6 @@ and you could easily implement the rest of it it without using RDF at all.
 If you don't want to patch MythTV you can still get everything except 
 the eventids - use exportdata.rb
 
+Todays's crids
+
+Are here: http://services.notu.be/crids 

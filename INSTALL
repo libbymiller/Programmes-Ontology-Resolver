@@ -38,13 +38,17 @@ mythtv-setup
 Configure it:
 
 Capture card
-Some settings are ether but capture card needs adding and seetting to DVB DTV capture card (v3.x)
+
+Some settings are there but capture card needs adding and setting to 
+DVB DTV capture card (v3.x)
  
 Video sources:
-Select (New video source). Enter a video source name of "EIT". Set the Listings grabber to "Transmitted guide only (EIT)". 
+Select (New video source). Enter a video source name of "EIT". Set the 
+Listings grabber to "Transmitted guide only (EIT)".
 
 Input connections
-Hit "Scan for channels" and set the correct country. Hopefully, this will find a load of channels and radio stations.
+Hit "Scan for channels" and set the correct country. Hopefully, this 
+will find a load of channels and radio stations.
  -> set a starting channel or it whinges
 
 Storage directories: /var/lib/mythtv
